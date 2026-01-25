@@ -93,7 +93,7 @@ questions = [
 
 # === КОМАНДЫ ===
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Привет! Я бот: создаю мемы и провожу викторины 🤖")
+    await update.message.reply_text("Привет! Я Stebubu: создаю мемы и провожу викторины 🤖")
 
 
 async def help(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -250,5 +250,6 @@ app.add_handler(CallbackQueryHandler(handle_buttons))
 app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
 app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_meme_text))
 app.add_handler(MessageHandler(filters.TEXT, echo))
+
 
 app.run_polling()
