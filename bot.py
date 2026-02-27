@@ -1,6 +1,4 @@
 import os
-import re
-import wikipedia
 import random
 import sqlite3
 import telebot
@@ -16,8 +14,8 @@ from telegram.ext import (
 )
 from dotenv import load_dotenv
 from PIL import Image, ImageDraw, ImageFont
-
-# Загрузка переменных окружения
+from dotenv import load_dotenv
+from background import keep_alive
 load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
@@ -111,7 +109,7 @@ questions = [
         "options": ["Куала-Лумпур", "Джакарта", "Дакка", "Бангкок"],
         "answer": "Джакарта"
     },
-    
+
 ]
 
 
@@ -148,15 +146,14 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Хорошо!А у тебя как?")
     else:
         await update.message.reply_text(update.message.text)
-    
+
 
 # === МЕНЮ ===
 keyboard = [
     [InlineKeyboardButton("🎲 Сгенерировать случайное число", callback_data="random"),
      InlineKeyboardButton("🖼️ Создать Мем", callback_data="create_meme")],
     [InlineKeyboardButton("❓ Викторина", callback_data="quiz"),
-     InlineKeyboardButton("🏆 Топ Игроков", callback_data="top")],
-    [InlineKeyboardButton("🔎 Найти слово", callback_data="find")]
+     InlineKeyboardButton("🏆 Топ Игроков", callback_data="top")]
 ]
 menu = InlineKeyboardMarkup(keyboard)
 
@@ -172,8 +169,6 @@ async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if data == "random":        
         await query.edit_message_text(random.randint(0,10000*10))
-    elif data=="find":
-        await query.s_find("Введи слово")
     elif data == "create_meme":
         await query.edit_message_text("🖼️ Пришли фото для мема")
         context.user_data["wait_for_photo"] = True
@@ -209,35 +204,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["wait_for_text"] = True
 
     await update.message.reply_text("✏️ А теперь пришли текст для мема!")
-# === ПОИСК СЛОВА ===
-def find(s):
-    try:
-        ny = wikipedia.page(s)
-        # Получаем первую тысячу символов
-        wikitext=ny.content[:1000]
-        # Разделяем по точкам
-        wikimas=wikitext.split('.')
-        # Отбрасываем всЕ после последней точки
-        wikimas = wikimas[:-1]
-        # Создаем пустую переменную для текста
-        wikitext2 = ''
-        # Проходимся по строкам, где нет знаков «равно» (то есть все, кроме заголовков)
-        for x in wikimas:
-            if not('==' in x):
-                    # Если в строке осталось больше трех символов, добавляем ее к нашей переменной и возвращаем утерянные при разделении строк точки на место
-                if(len((x.strip()))>3):
-                   wikitext2=wikitext2+x+'.'
-            else:
-                break
-        # Теперь при помощи регулярных выражений убираем разметку
-        wikitext2=re.sub('\([^()]*\)', '', wikitext2)
-        wikitext2=re.sub('\([^()]*\)', '', wikitext2)
-        wikitext2=re.sub('\{[^\{\}]*\}', '', wikitext2)
-        # Возвращаем текстовую строку
-        return wikitext2
-    # Обрабатываем исключение, которое мог вернуть модуль wikipedia при запросе
-    except Exception as e:
-        return 'В энциклопедии нет информации об этом'
+
 # === ОБРАБОТКА ТЕКСТА ДЛЯ МЕМА ===
 async def handle_meme_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.user_data.get("wait_for_text"):
@@ -308,4 +275,4 @@ app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
 app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_meme_text))
 app.add_handler(MessageHandler(filters.TEXT, echo))
 
-app.run_polling(poll_interval=0)
+app.run_polling(none_stop=True)
