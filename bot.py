@@ -1,6 +1,10 @@
 import os
+import re
+import wikipedia
 import random
 import sqlite3
+import telebot
+import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder,
@@ -32,7 +36,6 @@ def init_db():
     """)
     conn.commit()
     conn.close()
-
 
 def update_score(user_id, name, points):
     conn = sqlite3.connect("bot.db")
@@ -88,6 +91,27 @@ questions = [
         "options": ["Уагадугу", "Ломе", "Лусака", "Мбабане"],
         "answer": "Ломе"
     },
+    {
+        "question": "Столица Албании?",
+        "options": ["Тирана", "Будапешт", "Подгорица", "Скопье"],
+        "answer": "Тирана"
+    },
+    {
+        "question": "Столица Марокко?",
+        "options": ["Триполи", "Нуакшот", "Рабат", "Лима"],
+        "answer": "Рабат"
+    },
+    {
+        "question": "Столица Шри-Ланки?",
+        "options": ["Коломбо", "Карачи", "Дели", "Шри-Джаяварденепура-Котте"],
+        "answer": "Шри-Джаяварденепура-Котте"
+    },
+    {
+        "question": "Столица Индонезии?",
+        "options": ["Куала-Лумпур", "Джакарта", "Дакка", "Бангкок"],
+        "answer": "Джакарта"
+    },
+    
 ]
 
 
@@ -118,15 +142,21 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.lower()
     if "привет" in text:
         await update.message.reply_text("Привет! Рад тебя видеть 👋")
+    elif "пока" or "Пока" or "bye" or "goodbye" in text:
+        await update.message.reply_text("До скорой встречи!😔")
+    elif "How are you" or "how are you" or "how do you do" or "как дела?":
+        await update.message.reply_text("Хорошо!А у тебя как?")
     else:
         await update.message.reply_text(update.message.text)
-
+    
 
 # === МЕНЮ ===
 keyboard = [
-    [InlineKeyboardButton("🖼️ Создать Мем", callback_data="create_meme")],
+    [InlineKeyboardButton("🎲 Сгенерировать случайное число", callback_data="random"),
+     InlineKeyboardButton("🖼️ Создать Мем", callback_data="create_meme")],
     [InlineKeyboardButton("❓ Викторина", callback_data="quiz"),
-     InlineKeyboardButton("🏆 Топ Игроков", callback_data="top")]
+     InlineKeyboardButton("🏆 Топ Игроков", callback_data="top")],
+    [InlineKeyboardButton("🔎 Найти слово", callback_data="find")]
 ]
 menu = InlineKeyboardMarkup(keyboard)
 
@@ -134,15 +164,16 @@ menu = InlineKeyboardMarkup(keyboard)
 async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Выбери действие:", reply_markup=menu)
 
-
 # === ОБРАБОТКА КНОПОК ===
 async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     data = query.data
 
-    if data == "random_meme":
-        await query.edit_message_text("🎲 Мем будет здесь позже")
+    if data == "random":        
+        await query.edit_message_text(random.randint(0,10000*10))
+    elif data=="find":
+        await query.s_find("Введи слово")
     elif data == "create_meme":
         await query.edit_message_text("🖼️ Пришли фото для мема")
         context.user_data["wait_for_photo"] = True
@@ -178,8 +209,35 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["wait_for_text"] = True
 
     await update.message.reply_text("✏️ А теперь пришли текст для мема!")
-
-
+# === ПОИСК СЛОВА ===
+def find(s):
+    try:
+        ny = wikipedia.page(s)
+        # Получаем первую тысячу символов
+        wikitext=ny.content[:1000]
+        # Разделяем по точкам
+        wikimas=wikitext.split('.')
+        # Отбрасываем всЕ после последней точки
+        wikimas = wikimas[:-1]
+        # Создаем пустую переменную для текста
+        wikitext2 = ''
+        # Проходимся по строкам, где нет знаков «равно» (то есть все, кроме заголовков)
+        for x in wikimas:
+            if not('==' in x):
+                    # Если в строке осталось больше трех символов, добавляем ее к нашей переменной и возвращаем утерянные при разделении строк точки на место
+                if(len((x.strip()))>3):
+                   wikitext2=wikitext2+x+'.'
+            else:
+                break
+        # Теперь при помощи регулярных выражений убираем разметку
+        wikitext2=re.sub('\([^()]*\)', '', wikitext2)
+        wikitext2=re.sub('\([^()]*\)', '', wikitext2)
+        wikitext2=re.sub('\{[^\{\}]*\}', '', wikitext2)
+        # Возвращаем текстовую строку
+        return wikitext2
+    # Обрабатываем исключение, которое мог вернуть модуль wikipedia при запросе
+    except Exception as e:
+        return 'В энциклопедии нет информации об этом'
 # === ОБРАБОТКА ТЕКСТА ДЛЯ МЕМА ===
 async def handle_meme_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.user_data.get("wait_for_text"):
@@ -239,7 +297,6 @@ async def check_answer(update: Update, context: ContextTypes.DEFAULT_TYPE, data:
 
 # === ЗАПУСК БОТА ===
 init_db()
-
 app = ApplicationBuilder().token(BOT_TOKEN).build()
 
 app.add_handler(CommandHandler("start", start))
@@ -251,5 +308,4 @@ app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
 app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_meme_text))
 app.add_handler(MessageHandler(filters.TEXT, echo))
 
-
-app.run_polling()
+app.run_polling(poll_interval=0)
