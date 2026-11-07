@@ -1,1 +1,1 @@
-It is developer version of Stebubu Telegram bot.
+It is developer version of Stebubu Telegram bot. This bot can echo your messages, generate mems, create mems, which are based on your own pictures and captions.Bot also has list of questions for quiz.
